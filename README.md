@@ -52,35 +52,15 @@ Users → API Gateway (prod/blue/green stages)
 - [Node.js](https://nodejs.org/) (v18+)
 - [AWS CLI](https://aws.amazon.com/cli/) configured with credentials
 
-## Quick Start (CDK — Recommended)
+## Getting Started
+
+Install application dependencies first — this is required regardless of which deployment option you choose:
 
 ```bash
-# Install app dependencies
 npm install
-
-# Install CDK dependencies
-cd cdk && npm install && cd ..
-
-# Bootstrap CDK (first time only)
-cd cdk && npx cdk bootstrap && cd ..
-
-# Deploy infrastructure
-cd cdk && npx cdk deploy && cd ..
-
-# Build and deploy app versions
-npm run build:web1
-npm run build:web2
-
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-aws s3 sync web1/ s3://react-app-blue-${ACCOUNT_ID}/ --delete
-aws s3 sync web2/ s3://react-app-green-${ACCOUNT_ID}/ --delete
 ```
 
-CDK outputs will display your API URLs.
-
----
-
-> Before deploying, review [BUILD_AND_ARTIFACTS.md](BUILD_AND_ARTIFACTS.md) for a detailed explanation of the build process, output artifacts, relative path strategy, and hash-based routing.
+> For a detailed explanation of the build process, output artifacts, relative path strategy, and hash-based routing, see [BUILD_AND_ARTIFACTS.md](BUILD_AND_ARTIFACTS.md).
 
 ---
 
@@ -91,12 +71,19 @@ CDK outputs will display your API URLs.
 CDK creates all infrastructure (S3 buckets, API Gateway, IAM role, stages) in one command.
 
 ```bash
+# go to cdk folder
 cd cdk
-npm install
-npx cdk bootstrap    # first time only
-npx cdk diff         # preview changes
-npx cdk deploy       # deploy
+# Install CDK dependencies
+npm install 
+
+# Bootstrap CDK (first time only)
+npx cdk bootstrap 
+
+# Deploy infrastructure
+npx cdk deploy
 ```
+
+CDK outputs will display your API URLs.
 
 ### Option 2: AWS Console (Manual)
 
@@ -140,6 +127,8 @@ Both buckets must have index.html at the root level. This same-filename pattern 
 3. IAM → Roles → Create role → Trusted entity: API Gateway → Attach the policy above
 4. Role name: `ApiGatewayS3Role` → Copy the Role ARN
 
+![Alt text](images/ApiGatewayS3Role.png)
+
 #### Step 3: Create API Gateway
 
 1. API Gateway → Create API → REST API → Regional
@@ -172,6 +161,7 @@ Both buckets must have index.html at the root level. This same-filename pattern 
 3. Name: `proxy`
 4. Mapped from: `method.request.path.proxy`
 5. Click ✓
+![Alt text](images/%20SPA%20Blue-Green%20Deployment%20Integration%20Request.png)
 
 **Configure Method Response:**
 1. Method Response → Expand 200 → Add Header: `Content-Type` → ✓
@@ -179,6 +169,7 @@ Both buckets must have index.html at the root level. This same-filename pattern 
 **Configure Integration Response:**
 1. Integration Response → Expand 200 → Header Mappings
 2. `Content-Type` → `integration.response.header.Content-Type` → ✓
+![Alt text](images/%20SPA%20Blue-Green%20Deployment%20Integration%20Response.png)
 
 **Enable Binary Media Types:**
 1. API Settings → Binary Media Types → Add: `*/*` → Save
