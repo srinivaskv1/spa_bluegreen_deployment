@@ -1,0 +1,22 @@
+{
+  "name": "spa-bluegreen-deployment",
+  "version": "1.0.0",
+  "description": "Blue/Green deployment for React SPAs using AWS API Gateway and S3",
+  "scripts": {
+    "dev:web1": "vite --config vite.config.web1.js --port 3001",
+    "dev:web2": "vite --config vite.config.web2.js --port 3002",
+    "build:web1": "vite build --config vite.config.web1.js",
+    "build:web2": "vite build --config vite.config.web2.js",
+    "deploy:blue": "./scripts/deploy-blue.sh",
+    "deploy:green": "./scripts/deploy-green.sh"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.0.0"
+  }
+}
