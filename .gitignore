@@ -5,4 +5,5 @@ cdk.out
 cdk/cdk.out
 cdk/node_modules
 .DS_Store
+.vscode
 *.log
