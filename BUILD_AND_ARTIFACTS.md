@@ -69,19 +69,6 @@ aws s3 sync web1/ s3://react-app-blue-${ACCOUNT_ID}/ --delete
 aws s3 sync web2/ s3://react-app-green-${ACCOUNT_ID}/ --delete
 ```
 
-## Deploy Scripts
-
-Convenience scripts combine the build and sync steps:
-
-- `npm run deploy:blue` — builds web1 and syncs to the blue bucket (`scripts/deploy-blue.sh`)
-- `npm run deploy:green` — builds web2 and syncs to the green bucket (`scripts/deploy-green.sh`)
-
-## Key Design Decisions
-
-- Both buckets contain an `index.html` at the root — this allows API Gateway to serve either version using the same path structure.
-- Relative asset paths (`base: './'`) ensure JS/CSS loads from the same bucket as the HTML, not from an absolute path that could point to the wrong bucket.
-- `HashRouter` is used in both apps so all routing is client-side via `/#/route` — no server-side routing configuration needed.
-- `emptyOutDir: true` clears the output directory before each build to avoid stale artifacts.
 ## Relative Paths (`base: './'`)
 
 The Vite config sets `base: './'` for both apps. This controls how asset URLs are written in the built `index.html`.
@@ -100,13 +87,11 @@ With `base: './'`, paths become relative to the HTML file:
 <script type="module" src="./assets/index-abc123.js"></script>
 ```
 
-This matters because API Gateway serves the app under a stage prefix like `/prod/`, `/blue/`, or `/green/`. If the HTML references `/assets/...`, the browser requests `https://host/assets/index-abc123.js` — which doesn't exist at that path in API Gateway. With relative paths, the browser correctly requests `https://host/prod/assets/index-abc123.js`, which API Gateway proxies to the right S3 bucket.
-
-In short: absolute paths break cross-stage serving. Relative paths ensure JS and CSS always load from the same bucket that served the HTML.
+This is required as API Gateway serves the app under a stage prefix like `/prod/`, `/blue/`, or `/green/`. If the HTML references `/assets/...`, the browser requests `https://host/assets/index-abc123.js` — which doesn't exist at that path in API Gateway. With relative paths, the browser correctly requests `https://host/prod/assets/index-abc123.js`, which API Gateway proxies to the right S3 bucket.
 
 ## Hash-Based Routing (`HashRouter`)
 
-Both React apps use `HashRouter` from `react-router-dom` instead of `BrowserRouter`. This is a deliberate choice for the API Gateway + S3 architecture.
+Both React apps use `HashRouter` from `react-router-dom` instead of `BrowserRouter`. 
 
 With `BrowserRouter`, navigating to `/prod/about` would send a request to API Gateway for a file called `about` in the S3 bucket — which doesn't exist. The server has no concept of React routes, so it returns a 404 or error.
 
@@ -125,8 +110,3 @@ The browser never sends the fragment (`#/about`) to the server. Every request hi
 - Deep links and page refreshes work out of the box
 - The same `index.html` in each bucket handles all routes
 
-## Other Design Decisions
-
-- Both buckets contain an `index.html` at the root — this allows API Gateway to serve either version using the same path structure.
-- `emptyOutDir: true` clears the output directory before each build to avoid stale artifacts.
-- The `rename-index` plugin ensures both buckets use the same `index.html` filename regardless of which source HTML entry was used.

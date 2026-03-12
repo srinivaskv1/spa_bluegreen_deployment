@@ -1,8 +1,8 @@
 # Blue/Green Deployment for React SPAs on AWS
 
-Zero-downtime blue/green deployment for Single Page Applications using AWS API Gateway and S3.
+This project provides a complete guide for implementing zero-downtime blue/green deployment for Single Page Applications (SPAs) on AWS. The architecture uses API Gateway with stage variables to route traffic between two S3 buckets, enabling instant version switching and rollback.
 
-## Architecture
+## User Request Flow
 
 ```
 Users → API Gateway (prod/blue/green stages)
@@ -106,6 +106,16 @@ npx cdk deploy       # deploy
    - Block Public Access: all checked
 2. Repeat for `react-app-green-YOUR_ACCOUNT_ID`
 
+###### Retain block Public Access while creating buckets to keep them private
+
+Upload Application Files:
+1.	Open the blue bucket → Click Upload
+2.	Upload index.html and the assets/ folder
+3.	Repeat for the green bucket with the other version
+
+Both buckets must have index.html at the root level. This same-filename pattern is what makes blue/green switching work.
+
+
 #### Step 2: Create IAM Role
 
 1. IAM → Policies → Create policy (JSON):
@@ -174,6 +184,14 @@ npx cdk deploy       # deploy
 1. API Settings → Binary Media Types → Add: `*/*` → Save
 
 #### Step 5: Create Stages
+
+##### Deploy and Create Blue Stage:
+1.	Click Actions → Deploy API
+2.	Deployment stage: [New Stage]
+3.	Stage name: blue
+4.	Click Deploy
+5.	Click Stage Variables tab → Add Stage Variable
+6.	Name: bucketName, Value: react-app-blue-YOUR_ACCOUNT_ID
 
 Deploy API three times to create stages:
 
@@ -306,6 +324,68 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 aws s3 sync web1/ s3://react-app-blue-${ACCOUNT_ID}/ --delete
 aws s3 sync web2/ s3://react-app-green-${ACCOUNT_ID}/ --delete
 ```
+
+## Testing After Deployment
+
+Once the infrastructure is deployed and both app versions are synced to S3, verify everything is working using the stage URLs.
+
+### Stage URLs
+
+```
+Blue:  https://{API_ID}.execute-api.{REGION}.amazonaws.com/blue/#/
+Green: https://{API_ID}.execute-api.{REGION}.amazonaws.com/green/#/
+Prod:  https://{API_ID}.execute-api.{REGION}.amazonaws.com/prod/#/
+```
+
+You can find the actual URLs in the CDK output after `npx cdk deploy`, or construct them using your API ID:
+
+```bash
+API_ID="YOUR_API_ID"
+REGION="us-east-1"
+echo "Blue:  https://${API_ID}.execute-api.${REGION}.amazonaws.com/blue/#/"
+echo "Green: https://${API_ID}.execute-api.${REGION}.amazonaws.com/green/#/"
+echo "Prod:  https://${API_ID}.execute-api.${REGION}.amazonaws.com/prod/#/"
+```
+
+### Verification Checklist
+
+1. Open the blue stage URL — you should see the purple-themed app with the badge "Environment: Web 1 (Blue)."
+2. Open the green stage URL — you should see the pink-themed app with the badge "Environment: Web 2 (Green)."
+3. Open the prod stage URL — by default it points to blue, so you should see the purple theme.
+4. Navigate to each route (`/#/second`, `/#/about`, `/#/dashboard`) on all three stages and confirm pages render correctly.
+5. Refresh the page on any route — hash-based routing should preserve the current page without a 404.
+6. Open browser DevTools (Network tab) and confirm JS/CSS assets load from relative paths (no 404s or cross-bucket requests).
+
+### Testing a Version Switch
+
+```bash
+API_ID="YOUR_API_ID"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# Switch prod to green
+aws apigateway update-stage --rest-api-id $API_ID --stage-name prod \
+  --patch-operations op=replace,path=/variables/bucketName,value=react-app-green-${ACCOUNT_ID}
+```
+
+Reload the prod URL — it should now show the pink-themed green version. Then roll back:
+
+```bash
+# Switch prod back to blue
+aws apigateway update-stage --rest-api-id $API_ID --stage-name prod \
+  --patch-operations op=replace,path=/variables/bucketName,value=react-app-blue-${ACCOUNT_ID}
+```
+
+Reload again — you should be back to the purple-themed blue version. Both switches should take effect within ~1 second.
+
+### Common Issues During Testing
+
+| Symptom | Likely Cause | Fix |
+|---------|-------------|-----|
+| Blank page | JS/CSS not loading | Check DevTools Network tab for 404s. Ensure `base: './'` in Vite config and rebuild. |
+| "Missing Authentication Token" | No file path in URL | Use `/#/` at the end, e.g. `/prod/#/` not `/prod/` |
+| Wrong theme on prod | Stage variable not updated | Re-run the `update-stage` command and hard-refresh (Cmd+Shift+R) |
+| 403 Forbidden | S3 bucket permissions | Verify the IAM role has read access to both buckets |
+| Routes return 404 on refresh | Using BrowserRouter | Confirm both apps use `HashRouter`, not `BrowserRouter` |
 
 ## Switching Versions
 
